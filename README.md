@@ -80,9 +80,23 @@ Creating minimal rescue image from debian. Following tutorial is tested on Ubunt
         apt-get update
         apt-get -y install `cat packages.txt`
         apt-get clean
+        rm packages.txt
+        
+* fixing some warning during boot
+
+        rm -f /etc/mtab
+        ln -s /proc/mounts /etc/mtab
+        update-rc.d -f exim remove
+        update-rc.d -f cron remove
+        update-rc.d -f arpwatch remove
+        update-rc.d -f arpalert remove
+        sed -i -e 's/setterm \$/echo;#setterm $/' /etc/init.d/kbd
+        mkdir -p /live/ro
+        mkdir -p /live/image
 
 * when we finished editing, exit chroot
 
+        rm -f /root/.bash_history
         exit
 
 * pack squash filesystem, directory or files after option *-e* will be ommited
@@ -97,8 +111,8 @@ Creating minimal rescue image from debian. Following tutorial is tested on Ubunt
 
 * if you followed previous steps, you have to keep tree structure of directory. So leave in directory with `filesystem.squashfs`, create folder named `live` and put into it `filesystem.squashfs`. Then create iso image bootable by xen.
 
-        mkdir live
-        mv filesystem.squashfs live
+        mkdir -p live/live
+        mv filesystem.squashfs live/live
         mkisofs -J -o rescue.iso ./live
     
 ## Boot on XEN
