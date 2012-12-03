@@ -11,6 +11,7 @@ Creating minimal rescue image from debian. Following tutorial is tested on Ubunt
 
 * run `live_build_script.sh` (you can edit it by yourself) from live directory
 
+        mkdir live
         cd live
         . ../live_build_script.sh
     
