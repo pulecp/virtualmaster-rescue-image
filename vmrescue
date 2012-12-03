@@ -1,0 +1,101 @@
+#!/bin/sh
+
+for i in ext2 ext3 ext4 squashfs aufs isofs; do
+  modprobe $i
+done
+
+fail() { echo -e " \e[1;31m***\e[0;1m ${*}\e[0m" >&2; /bin/sh; }
+
+fix_xen_console_login_shell() {
+  echo "T0:2345:respawn:/sbin/getty -L hvc0 38400 linux" >> /root/etc/inittab
+}
+
+create_root_password() {
+  chroot /root usermod -p ${rootpasshash} root
+}
+
+config_network() {
+  #ip=eth0,10.0.1.99,255.255.252.0,10.0.0.1
+  #ipv6_prefix=2a01:430:d
+  #ipv6_local_part=924c:e5ff:fe4f:a1a3
+  ip_iface=$(echo $ip | cut -d , -f 1)
+  ip_ip=$(echo $ip | cut -d , -f 2)
+  ip_mask=$(echo $ip | cut -d , -f 3)
+  ip_gw=$(echo $ip | cut -d , -f 4)
+  
+cat > /root/etc/network/interfaces << EOF
+auto ${ip_iface}
+iface ${ip_iface} inet static
+  address ${ip_ip}
+  netmask ${ip_mask}
+  gateway ${ip_gw}
+iface ${ip_iface} inet6 static
+  address ${ipv6_prefix}:0:${ipv6_local_part}
+  netmask 64
+  gateway ${ipv6_prefix}:0::1
+EOF
+
+echo "nameserver 8.8.8.8" > /root/etc/resolv.conf
+}
+
+config_hostname() {
+echo "$hostname" > /root/etc/hostname
+}
+
+config_issue() {
+  ip_ip=$(echo $ip | cut -d , -f 2)
+  issue_ip=$(echo "$issue_extra" | tr '_' ' ' | sed s/#ip#/\$ip_ip/ | sed s/#ipv6#/\${ipv6_prefix}:0:\${ipv6_local_part}/ )
+  eval echo "$issue_ip" >> /root/etc/issue
+}
+
+
+config_ssh_keygen() {
+  if ! [ -f /root/etc/ssh/ssh_host_rsa_key ]; then
+    chroot /root ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ''
+  fi
+  
+  if ! [ -f /root/etc/ssh/ssh_host_dsa_key ]; then
+    chroot /root ssh-keygen -t dsa -b 1024 -f /etc/ssh/ssh_host_dsa_key -N ''
+  fi
+
+  if ! [ -f /root/etc/ssh/ssh_host_ecdsa_key ]; then
+    chroot /root ssh-keygen -t ecdsa -b 521 -f /etc/ssh/ssh_host_ecdsa_key -N ''
+  fi
+}
+
+
+mountroot()
+{
+mkdir -p /root
+mkdir -p /live
+
+
+echo "Mounting tmpfs on /live"
+mount -t tmpfs none /live
+
+mkdir -p /live/image
+mkdir -p /live/ro
+mkdir -p /live/rw
+
+#FIXME use /dev/disk/by-label/
+echo "Mounting cdrom on /dev/xvdd to /live/image"
+mount /dev/xvdd /live/image || fail "cannot mount live cdrom on /dev/xvdd"
+echo "Mounting filesystem.squashfs to /live/ro"
+mount /live/image/live/filesystem.squashfs /live/ro || fail "cannot mount live/filesystem.squashfs"
+echo "Mounting unionfs"
+mount -t aufs none /root -o dirs=/live/rw:/live/ro=ro || fail "cannot mount union fs: aufs"
+
+fix_xen_console_login_shell
+create_root_password
+config_network
+config_hostname
+config_issue
+config_ssh_keygen
+
+
+
+#this sed command stop after booting ram disk and allow check boot warnings
+#in short: do not allow connect login shell
+
+#comment this line after testing
+#sed -i -e 's/^T0/#T0/' /root/etc/inittab

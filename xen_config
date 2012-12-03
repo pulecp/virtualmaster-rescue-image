@@ -1,0 +1,11 @@
+memory       = 64
+maxmem       = 64
+kernel       = 'vmlinuz-3.2.0-4-amd64'
+ramdisk      = 'initrd.img-3.2.0-4-amd64'
+disk        = ['file:/mnt/live/rescue.iso,xvdd:cdrom,r']
+name        = 'rescue'
+vif         = ['mac=00:CC:11:99:FF:FF, ip=10.0.1.99, vifname=eth_rescue_0',]
+on_poweroff = 'destroy'
+on_reboot   = 'restart'
+on_crash    = 'restart'
+extra = 'boot=vmrescue locale=en_US.UTF-8 noautologin nouser hostname=rescue.virtualmaster.cz console=hvc0 ip=eth0,10.0.1.99,255.255.252.0,10.0.0.1 ipv6_prefix=2a01:430:d ipv6_local_part=2cc:c0ff:fe81:b919 rootpasshash=GIX/WtZfc0Gbs issue_extra=Please_login_using_ssh_root@#ip#_or_ssh_root@#ipv6#_with_password_toor123'
